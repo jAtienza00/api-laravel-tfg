@@ -11,6 +11,7 @@ class CriptoController extends MiController
 {
 
     private static $url = "https://api.coingecko.com/api/v3/coins";
+    private static $urlSearch = "https://api.coingecko.com/api/v3/search";
     private $vs_currency = "eur";
     private static $api_key = "CG-82Au3XunT489YeLVTddCNdEU";
 
@@ -232,4 +233,73 @@ class CriptoController extends MiController
         }
     }
 
+    public function buscar(Request $request){
+        try {
+            $query = $request->query('query'); // ✅ Extraer el valor correctamente
+            if (!$query) return response()->json(["error" => "Falta la query"], 400);
+            $url = CriptoController::$urlSearch . '?query=' . $query;
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Accept: application/json',
+                'x-cg-demo-api-key: ' . CriptoController::$api_key,
+            ]);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // Desactiva ver
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE); // Obtener código
+            $error = curl_error($ch); // Obtener errores de cURL
+            curl_close($ch);
+            if (!$response) {
+                return response()->json([
+                    'error' => 'No se recibió respuesta de la API',
+                    'http_code' => $httpCode,
+                    'curl_error' => $error
+                ], 500);
+            }
+            $data = json_decode($response, true);
+            return response()->json($data, 200);
+        } catch (\Throwable $th) {
+            return response()->json(['error' => $th->getMessage()], 500);
+        }
+    }
+    public function top(Request $request)
+    {
+        try {
+            $moneda = $this->vs_currency;
+            if ($request->has('moneda')) {
+                $moneda = $request->moneda;
+            }
+            $pagina = 1;
+
+            $url = CriptoController::$url . '/markets?vs_currency=' . $moneda . '&order=market_cap_desc&per_page=3&page=' . $pagina;
+
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Accept: application/json',
+                'x-cg-demo-api-key: ' . CriptoController::$api_key,
+            ]);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // Desactiva verificación SSL en caso de errores SSL
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE); // Obtener código de respuesta HTTP
+            $error = curl_error($ch); // Obtener errores de cURL
+            curl_close($ch);
+
+            // Depuración si la respuesta está vacía
+            if (!$response) {
+                return response()->json([
+                    'error' => 'No se recibió respuesta de la API',
+                    'http_code' => $httpCode,
+                    'curl_error' => $error
+                ], 500);
+            }
+
+            return response()->json(json_decode($response), $httpCode);
+        } catch (\Throwable $th) {
+            return response()->json(['error' => $th->getMessage()], 500);
+        }
+    }
 }
