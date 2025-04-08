@@ -17,5 +17,7 @@ use App\Http\Controllers\api\CriptoController;
 
 
 Route::get('/cripto', [CriptoController::class, 'index']);
+Route::get('/cripto/top', [CriptoController::class, 'top']);
+Route::get('/buscar', [CriptoController::class, 'buscar']);
 Route::get('/cripto/{id}', [CriptoController::class, 'show']);
 Route::get('/cripto/{id}/{cantidad}', [CriptoController::class, 'convertir']);
