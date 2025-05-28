@@ -15,15 +15,15 @@ return [
     |
     */
 
-    'paths' => ['api/*', 'sanctum/csrf-cookie'],
+    'paths' => ['api/*', 'sanctum/csrf-cookie', 'broadcasting/auth'],
 
-    'allowed_methods' => ['*'],
+    'allowed_methods' => ['*'],  // Permite todos los métodos HTTP
 
-    'allowed_origins' => ['*'],
+    'allowed_origins' => ['*'],  // Permite todos los orígenes
 
     'allowed_origins_patterns' => [],
 
-    'allowed_headers' => ['*'],
+    'allowed_headers' => ['*'],  // Permite todos los encabezados
 
     'exposed_headers' => [],
 
@@ -31,4 +31,5 @@ return [
 
     'supports_credentials' => false,
 
+    'hosts' => [],
 ];
