@@ -23,4 +23,10 @@ Route::get('/buscar', [CriptoController::class, 'buscar']);
 Route::get('/cripto/{id}', [CriptoController::class, 'show']);
 Route::get('/cripto/{id}/{cantidad}', [CriptoController::class, 'convertir']);
 
-Route::resource('/cursos', CursosController::class);
+Route::resource('/cursos', 'App\Http\Controllers\api\CursosController');
+
+// Ruta para descargar archivos de contenido de un curso
+Route::get('/curso/contenido/{id_curso}/{id_contenido}/descargar', [\App\Http\Controllers\api\ContenidoController::class, 'descargarArchivo'])->name('contenido.descargar');
+// La ruta resource para contenido debe ir después o asegurarse de que no haya conflictos.
+Route::post('/contenido/{id_curso}', [\App\Http\Controllers\api\ContenidoController::class, 'store']);
+Route::delete('/contenido/{id_curso}/{id_contenido}', [\App\Http\Controllers\api\ContenidoController::class, 'destroy']);

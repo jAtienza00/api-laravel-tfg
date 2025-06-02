@@ -15,8 +15,11 @@ class Curso extends Model
         'descripcion',
         'color_fondo',
         'color_texto',
-        'id_usuario'
+        'id_usuario',
+        'tipo_archivo'
     ];
+
+    public $timestamps = false;
 
     /**
      * Get all of the contenido_cursos for the Curso
@@ -34,7 +37,7 @@ class Curso extends Model
         static::deleting(function ($curso) {
             // This will delete related contenido_cursos when a curso is deleted.
             // Ensure this is the desired behavior.
-            $curso->contenidoCursos()->delete();
+            $curso->contenido_cursos()->delete();
         });
     }
 }

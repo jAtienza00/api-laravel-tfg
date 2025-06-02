@@ -7,64 +7,22 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\MiController;
 use App\Models\Curso;
-use Firebase\JWT\JWT;
-use Firebase\JWT\Key;
-use Firebase\JWT\ExpiredException;
 
 use function PHPUnit\Framework\isNull;
 
 class CursosController extends MiController
 {
-    /**
-     * Helper function to get authenticated user ID from JWT token.
-     * Returns user ID on success, or a JsonResponse on failure.
-     */
-    private function getAuthenticatedUserId(Request $request)
-    {
-        $token = $request->bearerToken();
 
-        if (!$token) {
-            return response()->json(['message' => 'Token no proporcionado.'], 401);
-        }
+    protected $imagesFiles = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'tif', 'tiff', 'ico', 'webp', 'heic', 'heif', 'avif'];
 
-        try {
-            $decoded = JWT::decode($token, new Key(env('JWT_SECRET'), env('JWT_ALGORITHM', 'HS256')));
-            if (!isset($decoded->sub)) { // Assuming 'sub' claim holds the user ID
-                return response()->json(['message' => 'Token inválido (falta claim sub).'], 401);
-            }
-            if (!isNull($request->header('X-USER-ID'))) {
-                if (($request->header('X-USER-ID') != $decoded->sub)) {
-                    return $decoded->sub; // Return user ID
-                }
-                return response()->json(['message' => 'No concuerdan los ids.'], 401);
-            }
-            return response()->json(['message' => 'Id no proporcionado.'], 401);
-        } catch (ExpiredException $e) {
-            return response()->json(['message' => 'Token expirado.'], 401);
-        } catch (\Firebase\JWT\SignatureInvalidException $e) {
-            return response()->json(['message' => 'Token inválido (firma incorrecta).'], 401);
-        } catch (\Exception $e) {
-            // Log::error('Error al decodificar JWT: ' . $e->getMessage());
-            return response()->json(['message' => 'Token inválido.'], 401);
-        }
-    }
 
     public function index(Request $request)
     {
-        // Optional: Secure this endpoint if needed, e.g., by checking for a valid token
-        // $authUserId = $this->getAuthenticatedUserId($request);
-        // if ($authUserId instanceof \Illuminate\Http\JsonResponse) {
-        //     return $authUserId;
-        // }
-
-        // Load courses, optionally with their content
-        // For performance, avoid loading 'contenidoCursos' for all courses in a list
-        // unless specifically requested and paginated.
-        $cursos = Curso::query()
-            ->when($request->query('with_contenido'), function ($query) {
-                $query->with('contenidoCursos');
-            })
-            ->get();
+        $authUserId = $this->getAuthenticatedUserId($request);
+        if ($authUserId instanceof \Illuminate\Http\JsonResponse) {
+            return $authUserId;
+        }
+        $cursos = Curso::get(['nombre', 'id', 'color_fondo', 'color_texto']);
 
         return response()->json($cursos);
     }
@@ -79,14 +37,9 @@ class CursosController extends MiController
         $validator = Validator::make($request->all(), [
             'nombre' => 'required|string|max:100',
             'descripcion' => 'required|string',
-            'imagen' => 'nullable|string', // Or file validation rules if handling uploads
+            'imagen' => 'nullable|image|mimes:jpg,jpeg,png',
             'color_fondo' => 'nullable|string|max:100',
             'color_texto' => 'nullable|string|max:100',
-            'contenido_cursos' => 'nullable|array',
-            'contenido_cursos.*.titulo' => 'required_with:contenido_cursos|string|max:100',
-            'contenido_cursos.*.mensaje' => 'required_with:contenido_cursos|string',
-            'contenido_cursos.*.archivo' => 'nullable|string', // Or file validation
-            'contenido_cursos.*.tipo_archivo' => 'nullable|string|max:100',
         ]);
 
         if ($validator->fails()) {
@@ -95,21 +48,40 @@ class CursosController extends MiController
 
         DB::beginTransaction();
         try {
-            $cursoData = $request->except('contenido_cursos');
-            $cursoData['id_usuario'] = $authUserId;
-            $curso = Curso::create($cursoData);
+            // Recopilar los datos validados para el curso
+            $cursoData = $request->only(['nombre', 'descripcion']);
 
-            if ($request->has('contenido_cursos') && is_array($request->contenido_cursos)) {
-                foreach ($request->contenido_cursos as $contenidoData) {
-                    $curso->contenidoCursos()->create($contenidoData);
+            // Añadir colores si se proporcionan, si no, la BD usará los defaults definidos en la migración
+            if ($request->filled('color_fondo')) {
+                $cursoData['color_fondo'] = $request->input('color_fondo');
+            }
+            if ($request->filled('color_texto')) {
+                $cursoData['color_texto'] = $request->input('color_texto');
+            }
+            foreach ($request->all() as $key => $value) {
+                if (is_string($value)) {
+                    \Illuminate\Support\Facades\Log::debug("Campo:" . $key . ", Es UTF-8 Válido?: " . (mb_check_encoding($value, 'UTF-8') ? 'Sí' : 'No - Hex: ' . bin2hex($value)));
                 }
             }
+            // Manejar la subida de la imagen
+            if ($request->hasFile('imagen') && $request->file('imagen')->isValid()) {
+                $archivo = $request->file('imagen');
+                // $extension = $archivo->getClientOriginalExtension(); // Ya no se usa la extensión sola
+                $cursoData['imagen'] = file_get_contents($archivo->getRealPath());
+                $cursoData['tipo_archivo'] = $archivo->getMimeType(); // Guardar el MIME type completo
+            } else {
+                $cursoData['imagen'] = null;
+                $cursoData['tipo_archivo'] = null;
+            }
+
+            $cursoData['id_usuario'] = $authUserId;
+
+            $curso = Curso::create($cursoData);
 
             DB::commit();
-            return response()->json($curso->load('contenidoCursos'), 201);
+            return response()->json(['message' => 'Curso creado correctamente.', 'id' => $curso->id, 'nombre' => $curso->nombre], 201);
         } catch (\Exception $e) {
             DB::rollBack();
-            // Log::error('Error al guardar el curso: ' . $e->getMessage());
             return response()->json(['message' => 'Error al guardar el curso.', 'error' => $e->getMessage()], 500);
         }
     }
@@ -121,14 +93,52 @@ class CursosController extends MiController
             return $authUserId;
         }
 
-        $curso = Curso::with('contenidoCursos')->find($id);
+        $curso = Curso::find($id);
 
         if (!$curso) {
             return response()->json(['message' => 'Curso no encontrado.'], 404);
         }
-        $contenido = $curso->contenido_cursos();
 
-        return response()->json([$curso, $contenido], 200);
+        // Preparar la imagen en Base64
+        $imagenBase64 = null;
+        if ($curso->imagen && $curso->tipo_archivo) {
+            // Asumimos que $curso->tipo_archivo es el MIME type completo
+            if (str_starts_with($curso->tipo_archivo, 'image/')) {
+                $imagenBase64 = 'data:' . $curso->tipo_archivo . ';base64,' . base64_encode($curso->imagen);
+            }
+        }
+
+        $cursoResponse = $curso->toArray();
+        $cursoResponse['imagen'] = $imagenBase64;
+
+        $contenido = $curso->contenido_cursos()->get();
+
+        foreach ($contenido as $itemContenido) {
+            if ($itemContenido->archivo && $itemContenido->tipo_archivo) {
+                // $itemContenido->tipo_archivo ahora es un MIME type completo, ej: "image/jpeg", "application/pdf"
+                $esImagen = str_starts_with($itemContenido->tipo_archivo, 'image/');
+
+                if ($esImagen) {
+                    // Si es imagen, la mostramos en base64
+                    $imagenBase64Contenido = 'data:' . $itemContenido->tipo_archivo . ';base64,' . base64_encode($itemContenido->archivo);
+                    $itemContenido->archivo = $imagenBase64Contenido; // Modificar el atributo del objeto
+                    $itemContenido->es_imagen = true;
+                    $itemContenido->nombre_archivo_original = null;
+                    // Opcionalmente, también ofrecer descarga para imágenes si se desea
+                    $itemContenido->url_descarga = route('contenido.descargar', ['id_curso' => $curso->id, 'id_contenido' => $itemContenido->id]);
+                } else {
+                    // Para otros tipos de archivo, solo generar la URL de descarga
+                    $itemContenido->url_descarga = route('contenido.descargar', ['id_curso' => $curso->id, 'id_contenido' => $itemContenido->id]);
+                    $itemContenido->archivo = null; // No enviar el binario en el JSON principal para no hacerlo pesado
+                    $itemContenido->es_imagen = false;
+                }
+            } else {
+                $itemContenido->url_descarga = null;
+                $itemContenido->nombre_archivo_original = null;
+                $itemContenido->es_imagen = false; // Asegurar que el flag esté presente
+            }
+        }
+        return response()->json(['curso' => $cursoResponse, 'contenido' => $contenido], 200);
     }
 
     public function update(Request $request, $id)
@@ -148,12 +158,18 @@ class CursosController extends MiController
         }
 
         $validator = Validator::make($request->all(), [
-            'nombre' => 'sometimes|required|string|max:100',
-            'descripcion' => 'sometimes|required|string',
-            // Add other validation rules for curso fields
-            'contenido_cursos' => 'nullable|array',
-            // Add validation for contenido_cursos items (id, titulo, etc.)
+            'nombre' => 'nullable|string|max:100',
+            'descripcion' => 'required|string',
+            'imagen' => 'nullable|image|mimes:jpg,jpeg,png',
+            'color_fondo' => 'nullable|string|max:100',
+            'color_texto' => 'nullable|string|max:100',
         ]);
+
+        foreach ($request->all() as $key => $value) {
+            if (is_string($value)) {
+                \Illuminate\Support\Facades\Log::debug("Campo:" . $key . ", Es UTF-8 Válido?: " . (mb_check_encoding($value, 'UTF-8') ? 'Sí' : 'No - Hex: ' . bin2hex($value)));
+            }
+        }
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
@@ -161,18 +177,36 @@ class CursosController extends MiController
 
         DB::beginTransaction();
         try {
-            $curso->update($request->except(['contenido_cursos', 'id_usuario'])); // id_usuario should not be mass-assignable here
+            $cursoData = $request->only(['descripcion']);
 
-            if ($request->has('contenido_cursos')) {
-                $this->syncContenidoCursos($curso, $request->input('contenido_cursos', []));
+            // Añadir colores si se proporcionan, si no, la BD usará los defaults definidos en la migración
+            $cursoData['nombre'] = $request->filled('nombre') ? $request->input('nombre') : $curso->nombre;
+            $cursoData['color_fondo'] = $request->filled('color_fondo') ? $request->input('color_fondo') : $curso->color_fondo;
+            $cursoData['color_texto'] = $request->filled('color_texto') ? $request->input('color_texto') : $curso->color_texto;
+
+            // Manejar la subida de la imagen
+            if ($request->hasFile('imagen') && $request->file('imagen')->isValid()) {
+                $archivo = $request->file('imagen');
+                // $extension = $archivo->getClientOriginalExtension();
+                $cursoData['imagen'] = file_get_contents($archivo->getRealPath());
+                $cursoData['tipo_archivo'] = $archivo->getMimeType(); // Guardar el MIME type completo
+            } else {
+                $cursoData['imagen'] = $curso->imagen;
+                $cursoData['tipo_archivo'] = $curso->tipo_archivo;
             }
+            $curso->update($cursoData);
 
             DB::commit();
-            return response()->json($curso->load('contenidoCursos'));
+            return response()->json(['message' => 'Curso actualizado correctamente.', 'id' => $curso->id, 'nombre' => $curso->nombre], 200);
         } catch (\Exception $e) {
             DB::rollBack();
             // Log::error('Error al actualizar el curso: ' . $e->getMessage());
-            return response()->json(['message' => 'Error al actualizar el curso.', 'error' => $e->getMessage()], 500);
+            $errorMessage = $e->getMessage();
+            // Asegurarse de que el mensaje de error sea UTF-8 válido
+            if (!mb_check_encoding($errorMessage, 'UTF-8')) {
+                $errorMessage = mb_convert_encoding($errorMessage, 'UTF-8', 'UTF-8');
+            }
+            return response()->json(['message' => 'Error al actualizar el curso.', 'error' => $errorMessage], 500);
         }
     }
 
@@ -190,7 +224,7 @@ class CursosController extends MiController
                 'id' => 'nullable|integer|exists:contenido_cursos,id', // Ensure ID exists if provided
                 'titulo' => 'required|string|max:100',
                 'mensaje' => 'required|string',
-                'archivo' => 'nullable|image',
+                'archivo' => 'nullable|file',
                 'tipo_archivo' => 'nullable|string|max:100',
             ]);
             if ($itemValidator->fails()) {
@@ -235,14 +269,12 @@ class CursosController extends MiController
 
         DB::beginTransaction();
         try {
-            // Related contenido_cursos will be deleted by model event or DB cascade if configured.
-            // Otherwise, delete them manually: $curso->contenidoCursos()->delete();
             $curso->delete();
             DB::commit();
-            return response()->json(['message' => 'Curso eliminado correctamente.']);
+            return response()->json(['message' => 'Curso eliminado correctamente.'], 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            // Log::error('Error al eliminar el curso: ' . $e->getMessage());
+            //\Illuminate\Support\Facades\Log::error('Error al eliminar el curso: ' . $e->getMessage());
             return response()->json(['message' => 'Error al eliminar el curso.'], 500);
         }
     }

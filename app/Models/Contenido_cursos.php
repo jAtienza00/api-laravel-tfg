@@ -14,8 +14,11 @@ class Contenido_cursos extends Model
         'titulo',
         'mensaje',
         'archivo',
-        'tipo_archivo'
+        'tipo_archivo',
+        'nombre_archivo_original'
     ];
+
+    public $timestamps = false;
 
     /**
      * Get the Contenido_cursos that owns the cursos
