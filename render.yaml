@@ -1,0 +1,41 @@
+services:
+  - type: web
+    name: api-laravel
+    env: php
+    buildCommand: composer install --no-dev
+    startCommand: php artisan serve --host=0.0.0.0 --port=$PORT
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: false
+      - key: APP_KEY
+        generateValue: true
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_HOST
+        fromDatabase:
+          name: api-laravel-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: api-laravel-db
+          property: port
+      - key: DB_DATABASE
+        fromDatabase:
+          name: api-laravel-db
+          property: database
+      - key: DB_USERNAME
+        fromDatabase:
+          name: api-laravel-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: api-laravel-db
+          property: password
+
+databases:
+  - name: api-laravel-db
+    databaseName: api_laravel
+    user: api_laravel_user
+    plan: free 
