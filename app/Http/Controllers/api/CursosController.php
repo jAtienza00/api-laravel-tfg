@@ -82,7 +82,13 @@ class CursosController extends MiController
             return response()->json(['message' => 'Curso creado correctamente.', 'id' => $curso->id, 'nombre' => $curso->nombre], 201);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['message' => 'Error al guardar el curso.', 'error' => $e->getMessage()], 500);
+            // Log::error('Error al actualizar el curso: ' . $e->getMessage());
+            $errorMessage = $e->getMessage();
+            // Asegurarse de que el mensaje de error sea UTF-8 válido
+            if (!mb_check_encoding($errorMessage, 'UTF-8')) {
+                $errorMessage = mb_convert_encoding($errorMessage, 'UTF-8', 'UTF-8');
+            }
+            return response()->json(['message' => 'Error al actualizar el curso.', 'error' => $errorMessage], 500);
         }
     }
 
