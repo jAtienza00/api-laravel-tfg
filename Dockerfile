@@ -8,12 +8,13 @@ RUN apt-get update && apt-get install -y \
     libpng-dev \
     libonig-dev \
     libxml2-dev \
+    libpq-dev \
     zip \
     unzip \
     libzip-dev
 
 # Instalar extensiones PHP
-RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip
+RUN docker-php-ext-install pdo_pgsql mbstring exif pcntl bcmath gd zip # Cambiado pdo_mysql a pdo_pgsql
 
 # Habilitar mod_rewrite para Apache
 RUN a2enmod rewrite
@@ -42,4 +43,4 @@ COPY docker/apache/000-default.conf /etc/apache2/sites-available/000-default.con
 EXPOSE 80
 
 # Comando para iniciar Apache
-CMD ["apache2-foreground"] 
+CMD ["apache2-foreground"]
