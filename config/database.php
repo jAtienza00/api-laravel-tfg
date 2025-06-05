@@ -72,6 +72,9 @@ return [
             'username' => env('DB_USERNAME', 'forge'),
             'password' => env('DB_PASSWORD', ''),
             'charset' => 'utf8',
+            'options'   => extension_loaded('pdo_pgsql') ? [
+                PDO::PGSQL_ATTR_DISABLE_PREPARES => true,
+            ] : [],
             'prefix' => '',
             'prefix_indexes' => true,
             'search_path' => 'public',
