@@ -28,7 +28,7 @@ return new class extends Migration
             $table->unsignedBigInteger('id_cursos'); // FK
             $table->string('titulo', 100)->default('Mensaje'); // not null
             $table->text('mensaje')->nullable();
-            $table->binary('archivo')->nullable(); // longblob
+            $table->text('archivo')->nullable(); // longblob
             $table->string('tipo_archivo', 100)->nullable();
             $table->string('nombre_archivo_original', 255)->nullable();
             $table->foreign('id_cursos')->references('id')->on('cursos')->onDelete('cascade');

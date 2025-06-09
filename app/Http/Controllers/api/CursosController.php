@@ -120,7 +120,7 @@ class CursosController extends MiController
 
                 if ($esImagen) {
                     // Si es imagen, la mostramos en base64
-                    $imagenBase64Contenido = 'data:' . $itemContenido->tipo_archivo . ';base64,' . base64_encode($itemContenido->archivo);
+                    $imagenBase64Contenido = 'data:' . $itemContenido->tipo_archivo . ';base64,' . $itemContenido->archivo;
                     $itemContenido->archivo = $imagenBase64Contenido; // Modificar el atributo del objeto
                     $itemContenido->es_imagen = true;
                     $itemContenido->nombre_archivo_original = null;

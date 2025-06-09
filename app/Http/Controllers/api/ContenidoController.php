@@ -150,7 +150,7 @@ class ContenidoController extends MiController
             if (in_array($extension, self::$extensionesPeligrosas) || in_array($mime, self::$tiposMimePeligrosos)) {
                 return response()->json(['message' => 'Tipo de archivo no permitido.'], 422);
             }
-            $dataToCreate['archivo'] = file_get_contents($archivo->getRealPath());
+            $dataToCreate['archivo'] = base64_encode(file_get_contents($archivo->getRealPath()));
             $dataToCreate['tipo_archivo'] = $mime; // Guardar el MIME type completo
             $dataToCreate['nombre_archivo_original'] = $archivo->getClientOriginalName();
         }
@@ -255,7 +255,7 @@ class ContenidoController extends MiController
             $nombreArchivoDescarga = $nombreOriginalBase . '.' . $extension;
         }
 
-        return response()->make($contenido->archivo, 200, [
+        return response()->make(base64_decode($contenido->archivo), 200, [
             'Content-Type' => $contenido->tipo_archivo,
             'Content-Disposition' => 'attachment; filename="' . rawurlencode($nombreArchivoDescarga) . '"',
         ]);
