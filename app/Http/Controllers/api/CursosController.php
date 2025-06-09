@@ -67,7 +67,7 @@ class CursosController extends MiController
             if ($request->hasFile('imagen') && $request->file('imagen')->isValid()) {
                 $archivo = $request->file('imagen');
                 // $extension = $archivo->getClientOriginalExtension(); // Ya no se usa la extensión sola
-                $cursoData['imagen'] = file_get_contents($archivo->getRealPath());
+                $cursoData['imagen'] = base64_encode(file_get_contents($archivo->getRealPath()));
                 $cursoData['tipo_archivo'] = $archivo->getMimeType(); // Guardar el MIME type completo
             } else {
                 $cursoData['imagen'] = null;
@@ -104,7 +104,7 @@ class CursosController extends MiController
         if ($curso->imagen && $curso->tipo_archivo) {
             // Asumimos que $curso->tipo_archivo es el MIME type completo
             if (str_starts_with($curso->tipo_archivo, 'image/')) {
-                $imagenBase64 = 'data:' . $curso->tipo_archivo . ';base64,' . base64_encode($curso->imagen);
+                $imagenBase64 = 'data:' . $curso->tipo_archivo . ';base64,' . $curso->imagen;
             }
         }
 
@@ -188,7 +188,7 @@ class CursosController extends MiController
             if ($request->hasFile('imagen') && $request->file('imagen')->isValid()) {
                 $archivo = $request->file('imagen');
                 // $extension = $archivo->getClientOriginalExtension();
-                $cursoData['imagen'] = file_get_contents($archivo->getRealPath());
+                $cursoData['imagen'] =  base64_encode(file_get_contents($archivo->getRealPath()));
                 $cursoData['tipo_archivo'] = $archivo->getMimeType(); // Guardar el MIME type completo
             } else {
                 $cursoData['imagen'] = $curso->imagen;
@@ -210,46 +210,7 @@ class CursosController extends MiController
         }
     }
 
-    /**
-     * Helper to sync contenido_cursos for a given curso during update.
-     */
-    private function syncContenidoCursos(Curso $curso, array $contenidosData)
-    {
-        $existingContenidoIds = $curso->contenidoCursos()->pluck('id')->toArray();
-        $requestContenidoIds = [];
-
-        foreach ($contenidosData as $contenidoData) {
-            // Basic validation for each item
-            $itemValidator = Validator::make($contenidoData, [
-                'id' => 'nullable|integer|exists:contenido_cursos,id', // Ensure ID exists if provided
-                'titulo' => 'required|string|max:100',
-                'mensaje' => 'required|string',
-                'archivo' => 'nullable|file',
-                'tipo_archivo' => 'nullable|string|max:100',
-            ]);
-            if ($itemValidator->fails()) {
-                // Handle individual item validation error, e.g., throw exception or collect errors
-                throw new \Illuminate\Validation\ValidationException($itemValidator);
-            }
-
-            if (isset($contenidoData['id'])) {
-                $contenido = $curso->contenidoCursos()::find($contenidoData['id']);
-                if ($contenido && $contenido->id_cursos == $curso->id) { // Ensure it belongs to the course
-                    $contenido->update($contenidoData);
-                    $requestContenidoIds[] = $contenido->id;
-                }
-            } else {
-                $newContenido = $curso->contenidoCursos()->create($contenidoData);
-                $requestContenidoIds[] = $newContenido->id;
-            }
-        }
-
-        // Delete contenido_cursos not present in the request
-        $idsToDelete = array_diff($existingContenidoIds, $requestContenidoIds);
-        if (!empty($idsToDelete)) {
-            $curso->contenidoCursos()::whereIn('id', $idsToDelete)->where('id_cursos', $curso->id)->delete();
-        }
-    }
+    
 
     public function destroy($id, Request $request)
     {

@@ -15,7 +15,7 @@ return new class extends Migration
             $table->bigIncrements('id'); // PK
             $table->unsignedBigInteger('id_usuario'); // FK
             $table->string('nombre', 100); // not null
-            $table->binary('imagen')->nullable(); // longblob, renamed from data
+            $table->text('imagen')->nullable(); // longblob, renamed from data
             $table->string('tipo_archivo', 100)->nullable();
             $table->text('descripcion'); // not null
             $table->string('color_fondo', 100)->nullable()->default('#000');
