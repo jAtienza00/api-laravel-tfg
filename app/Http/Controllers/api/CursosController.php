@@ -122,7 +122,7 @@ class CursosController extends MiController
                     // Si es imagen, la mostramos en base64
                     $imagenBase64Contenido = 'data:' . $itemContenido->tipo_archivo . ';base64,' . $itemContenido->archivo;
                     $itemContenido->archivo = $imagenBase64Contenido; // Modificar el atributo del objeto
-                    $itemContenido->es_imagen = true;
+                    $itemContenido->esImagen = true;
                     $itemContenido->nombre_archivo_original = null;
                     // Opcionalmente, también ofrecer descarga para imágenes si se desea
                     $itemContenido->url_descarga = route('contenido.descargar', ['id_curso' => $curso->id, 'id_contenido' => $itemContenido->id]);
@@ -130,7 +130,7 @@ class CursosController extends MiController
                     // Para otros tipos de archivo, solo generar la URL de descarga
                     $itemContenido->url_descarga = route('contenido.descargar', ['id_curso' => $curso->id, 'id_contenido' => $itemContenido->id]);
                     $itemContenido->archivo = null; // No enviar el binario en el JSON principal para no hacerlo pesado
-                    $itemContenido->es_imagen = false;
+                    $itemContenido->esImagen = false;
                 }
             } else {
                 $itemContenido->url_descarga = null;
